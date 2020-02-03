@@ -1,0 +1,15 @@
+@import 'reset';
+
+.autocomplete-group {
+  display: block;
+
+  .autocomplete-input {
+    display: block;
+  }
+  
+
+}
+
+.item--active {
+  border: 1px solid black;
+}

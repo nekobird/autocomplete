@@ -24,7 +24,7 @@ interface AutoCompleteInputConfig {
 }
 
 const AUTO_COMPLETE_INPUT_DEFAULT_CONFIG: AutoCompleteInputConfig = {
-  prepareGroupElement: group => group,
+  prepareGroupElement: group => group.classList.add('autocompleteinput'),
   prepareInputElement: input => input,
   prepareActualInputElement: input => input,
   prepareListElement: list => list,
@@ -32,7 +32,7 @@ const AUTO_COMPLETE_INPUT_DEFAULT_CONFIG: AutoCompleteInputConfig = {
   activateList: list => list.classList.add('list--active'),
   deactivateList: list => list.classList.remove('list--active'),
 
-  activateListItem: list => list.classList.add('list--active'),
+  activateListItem: list => list.classList.add('item--active'),
   deactivateListItem: item => item.classList.remove('item--active'),
 
   data: [],
@@ -64,6 +64,13 @@ class AutocompleteInput {
     this.config = { ...AUTO_COMPLETE_INPUT_DEFAULT_CONFIG };
 
     this.setConfig(config);
+
+    this.elements = {
+      group: null,
+      input: null,
+      actualInput: null,
+      list: null,
+    };
 
     this.searchResults = [];
 
@@ -107,6 +114,7 @@ class AutocompleteInput {
   private createActualInputElement() {
     this.elements.actualInput = document.createElement('input');
     this.elements.actualInput.setAttribute('type', 'text');
+    this.elements.actualInput.setAttribute('disabled', 'true');
     if (typeof this.config.prepareActualInputElement === 'function') {
       this.config.prepareActualInputElement(this.elements.actualInput);
     }
@@ -179,13 +187,19 @@ class AutocompleteInput {
 
       this.searchResults.forEach(([label, value]) => {
         const item = document.createElement('li');
-
         item.classList.add('item');
         item.setAttribute('data-label', label);
         item.setAttribute('data-value', value);
-        item.textContent = label;
 
-        item.addEventListener('click', event => {
+        const a = document.createElement('a');
+        a.setAttribute('data-label', label);
+        a.setAttribute('data-value', value);
+        a.textContent = label;
+
+        item.appendChild(a);
+        
+        a.addEventListener('click', event => {
+          event.preventDefault();
           this.assignValue(item.dataset.label, item.dataset.value);
           this.hideList();
         }, true);
@@ -240,82 +254,103 @@ class AutocompleteInput {
     }
   }
 
+  private goUpListItem() {
+    const items = this.elements.list.querySelectorAll('li');
+    if (items && items.length > 0) {
+
+      if (!this.listItemIsActive) {
+        return
+      }
+
+      this.activeListItemIndex > 0
+        ? this.activeListItemIndex--
+        : this.activeListItemIndex = 0;
+
+      const activeItem = Array.from(items)[this.activeListItemIndex];
+
+      if (activeItem) {
+        this.deactivateAllListItems();
+        this.config.activateListItem(activeItem);
+      }
+    }
+  }
+
+  private goDownListItem() {
+    const items = this.elements.list.querySelectorAll('li');
+    if (items && items.length > 0) {
+
+      if (!this.listItemIsActive) {
+        this.listItemIsActive = true;
+        this.activeListItemIndex = 0;
+      } else {
+        this.activeListItemIndex + 1 > items.length - 1
+          ? this.activeListItemIndex = 0
+          : this.activeListItemIndex++;
+      }
+
+      const activeItem = Array.from(items)[this.activeListItemIndex];
+
+      if (activeItem) {
+        this.deactivateAllListItems();
+        this.config.activateListItem(activeItem);
+      }
+    }
+  }
+
   private handleKeyboardEvents(event: KeyboardEvent) {
     switch (event.key) {
       case 'Enter': {
-        this.applyValue()
+        this.applyValue();
+        this.elements.list.innerHTML = '';
         break;
       }
 
       case 'ArrowUp': {
-        const items = this.listElement.querySelectorAll('li');
-        if (items && items.length > 0) {
-          if (!this.listItemIsActive) {
-            this.listItemIsActive = true;
-            this.activeListItem = 0;
-          } else {
-            this.activeListItem--;
-          }
-
-          const item = Array.from(items)[this.activeListItem];
-          if (item) {
-            this.deactivateAllItems();
-            item.classList.add('item--active');
-          }
-        }
+        this.goUpListItem();
         break;
       }
 
       case 'ArrowDown': {
-        const items = this.listElement.querySelectorAll('li');
-        if (items && items.length > 0) {
-          if (!this.listItemIsActive) {
-            this.listItemIsActive = true;
-            this.activeListItem = 0;
-          } else {
-            this.activeListItem++;
-          }
-
-          const item = Array.from(items)[this.activeListItem];
-          if (item) {
-            this.deactivateAllItems();
-            item.classList.add('item--active');
-          }
-        }
-        
+        this.goDownListItem();
         break;
       }
 
       case 'Escape': {
+        this.deactivateAllListItems();
+        this.elements.list.innerHTML = '';
         break;
       }
     }
+  }
+
+  private handleInput = event => {
+    this.elements.actualInput.value = '';
+
+
+    if (event.target.value === '') {
+      this.elements.actualInput.value = '';
+      this.elements.list.innerHTML = '';
+    } else {
+      this.search(event.target.value);
+    }
+  }
+
+  private handleKeyup = event => {
+    this.handleKeyboardEvents(event);
   }
 
   // Listen
   listen() {
     if (!this.isListening && this.elements.input) {
-      this._handleInput = function(event) {
-        this.actualInputElement.value = '';
-        if (event.target.value === '') {
-          this.actualInputElement.value = '';
-        } else {
-          this.search(event.target.value);
-        }
-      }.bind(this);
-
-      this._handleKeyup = function(event) {
-        this.handleKeyboardEvents(event);
-      }.bind(this);
-
-      this.inputElement.addEventListener('input', this._handleInput, true);
-      this.inputElement.addEventListener('keyup', this._handleKeyup, true);
+      this.elements.input.addEventListener('input', this.handleInput, true);
+      this.elements.input.addEventListener('keyup', this.handleKeyup, true);
     }
   }
 
   stopListening() {
-    if (this.isListening && this.inputElement) {
-      this.inputElement.removeEventListener('input', this._handleInput);
+    if (this.isListening && this.elements.input) {
+      this.elements.input.removeEventListener('input', this.handleInput);
+      this.elements.input.removeEventListener('input', this.handleKeyup);
     }
   }
 }

@@ -12,5 +12,5 @@ if (rootElement) {
     ],
   });
 
-  rootElement.appendChild(autocompleteInput.groupElement);
+  rootElement.appendChild(autocompleteInput.elements.group);
 }

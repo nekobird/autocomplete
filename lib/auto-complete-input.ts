@@ -81,6 +81,10 @@ class AutocompleteInput {
     return this.config;
   }
 
+  public getElement(): HTMLElement | null {
+    return this.elements.group || null;
+  }
+
   // Create elements
   private createElements(): void {
     this.createGroupElement();
@@ -119,16 +123,36 @@ class AutocompleteInput {
   }
 
   private composeElements(): void {
-    if (this.elements.group) {
+    if (
+         this.elements.group
+      && this.elements.input
+      && this.elements.actualInput
+      && this.elements.list
+    ) {
       this.elements.group.appendChild(this.elements.input);
       this.elements.group.appendChild(this.elements.actualInput);
       this.elements.group.appendChild(this.elements.list);
+
+      return;
     }
+
+    console.error('autocomplete: group, input, actualInput, or list is undefined.');
   }
 
-  public assignValue(label: string, value: string): void {
-    this.elements.input.value = label;
-    this.elements.actualInput.value = value;
+  public assignValue(label?: string, value?: string): void {
+    if (
+         this.elements.input
+      && this.elements.actualInput
+      && typeof label === 'string'
+      && typeof value === 'string'
+    ) {
+      this.elements.input.value = label;
+      this.elements.actualInput.value = value;
+
+      return;
+    }
+
+    console.error('autocomplete: Cannot assign value because input or actualInput is undefined.');
   }
 
   // List
@@ -168,9 +192,9 @@ class AutocompleteInput {
   }
 
   private getActiveListItem(): HTMLLIElement | null {
-    if (this.listItemIsActive) {
+    if (this.listItemIsActive && this.elements.list) {
       const items = this.elements.list.querySelectorAll('li');
-      return items[this.activeListItemIndex] ?? null;
+      return items[this.activeListItemIndex] || null;
     }
     return null;
   }
@@ -201,21 +225,21 @@ class AutocompleteInput {
           this.resetListAndListItems();
         }, true);
 
-        this.elements.list.appendChild(item);
+        this.elements.list!.appendChild(item);
       });
 
       this.showList();
     }
   }
 
-  private showAll() {
+  private showAllListItems() {
     if (this.elements.list) {
       this.searchResults = [...this.config.data];
       this.updateList();
     }
   }
 
-  private search(searchString: string) {
+  private searchAndUpdateList(searchString: string) {
     const _searchString = searchString.trim().toLowerCase();
     if (_searchString) {
       this.searchResults = this.config.data.filter(([label]) => {
@@ -224,7 +248,8 @@ class AutocompleteInput {
       });
 
       this.searchResults.sort(([labelA], [labelB]) => (
-        labelA.trim().toLowerCase().search(_searchString) - labelB.trim().toLowerCase().search(_searchString))
+        labelA.trim().toLowerCase().search(_searchString)
+        - labelB.trim().toLowerCase().search(_searchString))
       );
 
       this.updateList();
@@ -260,22 +285,24 @@ class AutocompleteInput {
   }
 
   private goUpListItem() {
-    const items = this.elements.list.querySelectorAll('li');
-    if (items && items.length > 0) {
+    if (this.elements.list) {
+      const items = this.elements.list.querySelectorAll('li');
+      if (items && items.length > 0) {
 
-      if (!this.listItemIsActive) {
-        return
-      }
+        if (!this.listItemIsActive) {
+          return
+        }
 
-      this.activeListItemIndex > 0
-        ? this.activeListItemIndex--
-        : this.activeListItemIndex = 0;
+        this.activeListItemIndex > 0
+          ? this.activeListItemIndex--
+          : this.activeListItemIndex = 0;
 
-      const activeItem = Array.from(items)[this.activeListItemIndex];
+        const activeItem = Array.from(items)[this.activeListItemIndex];
 
-      if (activeItem) {
-        this.deactivateAllListItems();
-        this.config.activateListItem(activeItem);
+        if (activeItem) {
+          this.deactivateAllListItems();
+          this.config.activateListItem(activeItem);
+        }
       }
     }
   }
@@ -330,10 +357,12 @@ class AutocompleteInput {
   }
 
   private handleInput = event => {
-    this.elements.actualInput.value = '';
-    event.target.value === ''
-      ? this.showAll()
-      : this.search(event.target.value);
+    if (this.elements.actualInput) {
+      this.elements.actualInput.value = '';
+      event.target.value === ''
+        ? this.showAllListItems()
+        : this.searchAndUpdateList(event.target.value);
+    }
   }
 
   private handleKeyup = event => {
@@ -341,11 +370,11 @@ class AutocompleteInput {
   }
 
   private handleFocus = event => {
-    this.showAll();
+    this.showAllListItems();
   }
 
   private handleOutsideClick = event => {
-    !hasAncestor(event.target, this.elements.group) && this.resetListAndListItems();
+    this.elements.group && !hasAncestor(event.target, this.elements.group) && this.resetListAndListItems();
   }
 
   // Listen
@@ -360,8 +389,9 @@ class AutocompleteInput {
 
   public stopListening() {
     if (this.isListening && this.elements.input) {
+      this.elements.input.removeEventListener('focus', this.handleFocus);
       this.elements.input.removeEventListener('input', this.handleInput);
-      this.elements.input.removeEventListener('input', this.handleKeyup);
+      this.elements.input.removeEventListener('keyup', this.handleKeyup);
       window.removeEventListener('click', this.handleOutsideClick);
     }
   }

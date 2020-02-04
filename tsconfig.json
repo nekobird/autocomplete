@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": "./lib",
+    "declaration": true,
+    "declarationDir": "./build/types/",
+    "esModuleInterop": true,
+    "lib": [
+      "dom.iterable",
+      "dom",
+      "esnext"
+    ],
+    "module": "esnext",
+    "moduleResolution": "node",
+    "noImplicitAny": false,
+    "noImplicitThis": false,
+    "outDir": "./build-ts/",
+    "preserveConstEnums": true,
+    "removeComments": true,
+    "resolveJsonModule": false,
+    "rootDir": ".",
+    "sourceMap": true,
+    "strict": true,
+    "target": "es5",
+  },
+  "include": [
+    "./lib/**/*",
+  ],
+  "exclude": [
+    "node_modules",
+  ],
+}

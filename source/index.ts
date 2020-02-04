@@ -1,8 +1,9 @@
-import AutocompleteInput from './autocomplete-input';
+// import AutocompleteInput from '../lib/autocomplete-input';
 
 const rootElement = document.getElementById('root');
 
 if (rootElement) {
+  // @ts-ignore
   const autocompleteInput = new AutocompleteInput({
     data: [
       ['Alberta',                   'AB'],

@@ -15,11 +15,29 @@ html {
   ol {
     position: absolute;
     top: 40px;
+    width: 100%;
+    box-shadow: 0 0 32px hsla(0, 0, 10, 0.1);
   }
 
   li {
-    padding: 20px;
     cursor: pointer;
+    a {
+      display: block;
+      width: 100%;
+      padding: 10px 12px;
+      box-sizing: border-box;
+
+      transition-timing-function: ease-out;
+      transition-duration: 150ms;
+
+      &:hover {
+        background-color: hsl(0, 0, 96);
+      }
+
+      &:active {
+        background-color: hsl(0, 0, 90);
+      }
+    }
   }
 }
 

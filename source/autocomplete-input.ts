@@ -1,10 +1,6 @@
-// @params {
-//   label: string
-// 	 id: string
-// 	 name: string
-// 	 placeholder?: string
-// 	 data: [[key: string] => string]
-// }
+import {
+  hasAncestor,
+} from '@nekobird/doko';
 
 type AutocompleteData = [string, string][];
 
@@ -80,9 +76,8 @@ class AutocompleteInput {
   }
 
   public setConfig(config: Partial<AutoCompleteInputConfig>): AutoCompleteInputConfig {
-    if (typeof config === 'object') {
-      Object.assign(this.config, config);
-    }
+    typeof config === 'object'
+      && Object.assign(this.config, config);
     return this.config;
   }
 
@@ -96,38 +91,34 @@ class AutocompleteInput {
     this.composeElements();
   }
 
-  private createGroupElement() {
+  private createGroupElement(): void {
     this.elements.group = document.createElement('div');
-    if (typeof this.config.prepareGroupElement === 'function') {
-      this.config.prepareGroupElement(this.elements.group);
-    }
+    typeof this.config.prepareGroupElement === 'function'
+      && this.config.prepareGroupElement(this.elements.group);
   }
 
-  private createInputElement() {
+  private createInputElement(): void {
     this.elements.input = document.createElement('input');
     this.elements.input.setAttribute('type', 'text');
-    if (typeof this.config.prepareInputElement === 'function') {
-      this.config.prepareInputElement(this.elements.input);
-    }
+    typeof this.config.prepareInputElement === 'function'
+      && this.config.prepareInputElement(this.elements.input);
   }
 
-  private createActualInputElement() {
+  private createActualInputElement(): void {
     this.elements.actualInput = document.createElement('input');
     this.elements.actualInput.setAttribute('type', 'text');
     this.elements.actualInput.setAttribute('disabled', 'true');
-    if (typeof this.config.prepareActualInputElement === 'function') {
-      this.config.prepareActualInputElement(this.elements.actualInput);
-    }
+    typeof this.config.prepareActualInputElement === 'function'
+      && this.config.prepareActualInputElement(this.elements.actualInput);
   }
 
-  private createListElement() {
+  private createListElement(): void {
     this.elements.list = document.createElement('ol');
-    if (typeof this.config.prepareListElement === 'function') {
-      this.config.prepareListElement(this.elements.list);
-    }
+    typeof this.config.prepareListElement === 'function'
+      && this.config.prepareListElement(this.elements.list);
   }
 
-  private composeElements() {
+  private composeElements(): void {
     if (this.elements.group) {
       this.elements.group.appendChild(this.elements.input);
       this.elements.group.appendChild(this.elements.actualInput);
@@ -135,14 +126,14 @@ class AutocompleteInput {
     }
   }
 
-  public assignValue(label: string, value: string) {
+  public assignValue(label: string, value: string): void {
     this.elements.input.value = label;
     this.elements.actualInput.value = value;
   }
 
   // List
 
-  private hideList() {
+  private deactivateList(): void {
     if (this.elements.list) {
       this.config.deactivateList(this.elements.list);
       this.elements.list.innerHTML = '';
@@ -150,26 +141,30 @@ class AutocompleteInput {
     }
   }
 
-  private showList() {
+  private showList(): void {
+    this.elements.list && this.config.activateList(this.elements.list);
+  }
+
+  private deactivateAllListItems(): void {
     if (this.elements.list) {
-      this.config.activateList(this.elements.list);
+      const items = this.elements.list.querySelectorAll('li');
+      if (items) {
+        items.forEach(
+          item => typeof this.config.deactivateListItem === 'function'
+            && this.config.deactivateListItem(item)
+        );
+      }
     }
   }
 
-  private deactivateAllListItems() {
-    const items = this.elements.list.querySelectorAll('li');
-    if (items) {
-      items.forEach(item => {
-        if (typeof this.config.deactivateListItem === 'function') {
-          this.config.deactivateListItem(item);
-        }
-      });
-    }
-  }
+  private resetListAndListItems(): void {
+    if (this.elements.list) {
+      this.deactivateAllListItems();
+      this.deactivateList();
 
-  private deactivateListItem() {
-    this.listItemIsActive = false;
-    this.activeListItemIndex = 0;
+      this.listItemIsActive = false;
+      this.activeListItemIndex = 0;
+    }
   }
 
   private getActiveListItem(): HTMLLIElement | null {
@@ -186,11 +181,13 @@ class AutocompleteInput {
       this.elements.list.innerHTML = '';
 
       this.searchResults.forEach(([label, value]) => {
+        // list item
         const item = document.createElement('li');
         item.classList.add('item');
         item.setAttribute('data-label', label);
         item.setAttribute('data-value', value);
 
+        // anchor
         const a = document.createElement('a');
         a.setAttribute('data-label', label);
         a.setAttribute('data-value', value);
@@ -201,7 +198,7 @@ class AutocompleteInput {
         a.addEventListener('click', event => {
           event.preventDefault();
           this.assignValue(item.dataset.label, item.dataset.value);
-          this.hideList();
+          this.resetListAndListItems();
         }, true);
 
         this.elements.list.appendChild(item);
@@ -211,12 +208,24 @@ class AutocompleteInput {
     }
   }
 
+  private showAll() {
+    if (this.elements.list) {
+      this.searchResults = [...this.config.data];
+      this.updateList();
+    }
+  }
+
   private search(searchString: string) {
-    if (searchString) {
+    const _searchString = searchString.trim().toLowerCase();
+    if (_searchString) {
       this.searchResults = this.config.data.filter(([label]) => {
-        const searchRegex = new RegExp(`(${searchString.trim().toLowerCase()})`);
+        const searchRegex = new RegExp(`(${_searchString.trim().toLowerCase()})`);
         return label.toLowerCase().match(searchRegex);
       });
+
+      this.searchResults.sort(([labelA], [labelB]) => (
+        labelA.trim().toLowerCase().search(_searchString) - labelB.trim().toLowerCase().search(_searchString))
+      );
 
       this.updateList();
     }
@@ -224,9 +233,7 @@ class AutocompleteInput {
 
   private applyActiveListItem() {
     const item = this.getActiveListItem();
-    if (item) {
-      this.assignValue(item.dataset.label, item.dataset.value);
-    }
+    item && this.assignValue(item.dataset.label, item.dataset.value);
   }
 
   private applyFirstSearchResult() {
@@ -245,11 +252,9 @@ class AutocompleteInput {
   private applyValue() {
     if (this.listItemIsActive) {
       this.applyActiveListItem();
-    }
-    else if (this.searchResults.length) {
+    } else if (this.searchResults.length) {
       this.applyFirstSearchResult();
-    }
-    else {
+    } else {
       this.clearActualInput();
     }
   }
@@ -276,23 +281,25 @@ class AutocompleteInput {
   }
 
   private goDownListItem() {
-    const items = this.elements.list.querySelectorAll('li');
-    if (items && items.length > 0) {
+    if (this.elements.list) {
+      const items = this.elements.list.querySelectorAll('li');
+      if (items && items.length > 0) {
 
-      if (!this.listItemIsActive) {
-        this.listItemIsActive = true;
-        this.activeListItemIndex = 0;
-      } else {
-        this.activeListItemIndex + 1 > items.length - 1
-          ? this.activeListItemIndex = 0
-          : this.activeListItemIndex++;
-      }
+        if (!this.listItemIsActive) {
+          this.listItemIsActive = true;
+          this.activeListItemIndex = 0;
+        } else {
+          this.activeListItemIndex + 1 > items.length - 1
+            ? this.activeListItemIndex = 0
+            : this.activeListItemIndex++;
+        }
 
-      const activeItem = Array.from(items)[this.activeListItemIndex];
+        const activeItem = Array.from(items)[this.activeListItemIndex];
 
-      if (activeItem) {
-        this.deactivateAllListItems();
-        this.config.activateListItem(activeItem);
+        if (activeItem) {
+          this.deactivateAllListItems();
+          this.config.activateListItem(activeItem);
+        }
       }
     }
   }
@@ -301,7 +308,7 @@ class AutocompleteInput {
     switch (event.key) {
       case 'Enter': {
         this.applyValue();
-        this.elements.list.innerHTML = '';
+        this.resetListAndListItems();
         break;
       }
 
@@ -316,8 +323,7 @@ class AutocompleteInput {
       }
 
       case 'Escape': {
-        this.deactivateAllListItems();
-        this.elements.list.innerHTML = '';
+        this.resetListAndListItems();
         break;
       }
     }
@@ -325,32 +331,38 @@ class AutocompleteInput {
 
   private handleInput = event => {
     this.elements.actualInput.value = '';
-
-
-    if (event.target.value === '') {
-      this.elements.actualInput.value = '';
-      this.elements.list.innerHTML = '';
-    } else {
-      this.search(event.target.value);
-    }
+    event.target.value === ''
+      ? this.showAll()
+      : this.search(event.target.value);
   }
 
   private handleKeyup = event => {
     this.handleKeyboardEvents(event);
   }
 
+  private handleFocus = event => {
+    this.showAll();
+  }
+
+  private handleOutsideClick = event => {
+    !hasAncestor(event.target, this.elements.group) && this.resetListAndListItems();
+  }
+
   // Listen
-  listen() {
+  public listen(): void {
     if (!this.isListening && this.elements.input) {
+      this.elements.input.addEventListener('focus', this.handleFocus, true);
       this.elements.input.addEventListener('input', this.handleInput, true);
       this.elements.input.addEventListener('keyup', this.handleKeyup, true);
+      window.addEventListener('click', this.handleOutsideClick, true);
     }
   }
 
-  stopListening() {
+  public stopListening() {
     if (this.isListening && this.elements.input) {
       this.elements.input.removeEventListener('input', this.handleInput);
       this.elements.input.removeEventListener('input', this.handleKeyup);
+      window.removeEventListener('click', this.handleOutsideClick);
     }
   }
 }

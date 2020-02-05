@@ -2,17 +2,20 @@
   "name": "autocomplete-input",
   "version": "1.0.0",
   "description": "",
+  "license": "ISC",
+  "author": "Andrew Prasetya",
+  "sideEffects": false,
   "main": "index.js",
   "scripts": {
-    "start": "parcel source/index.html",
-    "build:ts": "tsc",
     "build": "rimraf build; webpack",
     "build:parcel": "parcel build ./lib/auto-complete-input-export.ts",
+    "build:ts": "tsc",
+    "start": "parcel source/index.html",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Andrew Prasetya",
-  "license": "ISC",
-  "sideEffects": false,
+  "dependencies": {
+    "@nekobird/doko": "0.0.3"
+  },
   "devDependencies": {
     "@babel/core": "^7.8.4",
     "@babel/plugin-transform-runtime": "^7.8.3",
@@ -26,8 +29,5 @@
     "typescript": "^3.7.5",
     "webpack": "^4.41.5",
     "webpack-cli": "^3.3.10"
-  },
-  "dependencies": {
-    "@nekobird/doko": "0.0.3"
   }
 }

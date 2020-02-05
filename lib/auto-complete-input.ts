@@ -223,7 +223,7 @@ class AutocompleteInput {
   private getActiveListItem(): HTMLLIElement | null {
     if (this.listItemIsActive && this.elements.list) {
       const items = this.elements.list.querySelectorAll('li');
-      return Array.from(items)[this.activeListItemIndex] || null;
+      return toHTMLElementArray(items)[this.activeListItemIndex] as HTMLLIElement || null;
     }
     return null;
   }

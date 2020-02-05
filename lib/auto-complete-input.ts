@@ -1,5 +1,6 @@
 import {
   hasAncestor,
+  toHTMLElementArray,
 } from '@nekobird/doko';
 
 type AutocompleteData = [string, string][];
@@ -61,6 +62,8 @@ class AutocompleteInput {
   public listIsActive: boolean = false;
   public listItemIsActive: boolean = false;
   public activeListItemIndex: number = 0;
+
+  public inputIsFocused: boolean = false;
 
   public data: AutocompleteData;
 
@@ -189,19 +192,22 @@ class AutocompleteInput {
   }
 
   private activateListItem(): void {
-    if (this.listIsActive && this.listData.length) {
-      if (this.activeListItemIndex > this.listData.length - 1) {
-        this.activeListItemIndex = 0;
-      } else if (this.activeListItemIndex < 0) {
-        this.activeListItemIndex = this.listData.length - 1;
-      }
+    if (this.elements.list) {
+      const items = toHTMLElementArray(this.elements.list.querySelectorAll('li'));
 
-      const items = this.elements.list?.querySelectorAll('li');
+      if (this.listIsActive && items.length) {
 
-      if (items && Array.from(items)[this.activeListItemIndex]) {
-        this.deactivateAllListItemsFromConfig();
-        this.config.activateListItem(Array.from(items)[this.activeListItemIndex]);
-        this.listItemIsActive = true;
+        if (this.activeListItemIndex > items.length - 1) {
+          this.activeListItemIndex = 0;
+        } else if (this.activeListItemIndex < 0) {
+          this.activeListItemIndex = items.length - 1;
+        }
+
+        if (items && Array.from(items)[this.activeListItemIndex]) {
+          this.deactivateAllListItemsFromConfig();
+          this.config.activateListItem(items[this.activeListItemIndex] as HTMLLIElement);
+          this.listItemIsActive = true;
+        }
       }
     }
   }
@@ -250,7 +256,7 @@ class AutocompleteInput {
   }
 
   private activateList() {
-    if (this.elements.list && this.listData.length) {
+    if (this.elements.list) {
       this.config.deactivateList(this.elements.list);
 
       this.elements.list.innerHTML = '';
@@ -395,11 +401,19 @@ class AutocompleteInput {
   }
 
   private handleFocus = event => {
+    this.inputIsFocused = true;
     this.updateListWithAllData();
   }
 
+  private handleBlur = event => {
+    this.inputIsFocused = false;
+  }
+
   private handleOutsideClick = event => {
-    this.listIsActive && this.elements.group && !hasAncestor(event.target, this.elements.group) && this.deactivateList();
+    this.listIsActive
+    && this.elements.group
+    && !hasAncestor(event.target, this.elements.group)
+    && this.deactivateList();
   }
 
   private handleInputClick = event => {
@@ -412,6 +426,8 @@ class AutocompleteInput {
   public listen(): void {
     if (!this.isListening && this.elements.input) {
       this.elements.input.addEventListener('focus', this.handleFocus, true);
+      this.elements.input.addEventListener('blur', this.handleBlur, true);
+
       this.elements.input.addEventListener('input', this.handleInput, true);
       this.elements.input.addEventListener('click', this.handleInputClick, true);
       this.elements.input.addEventListener('keyup', this.handleKeyup, true);
@@ -422,6 +438,8 @@ class AutocompleteInput {
   public stopListening() {
     if (this.isListening && this.elements.input) {
       this.elements.input.removeEventListener('focus', this.handleFocus);
+      this.elements.input.removeEventListener('blur', this.handleBlur);
+
       this.elements.input.removeEventListener('input', this.handleInput);
       this.elements.input.removeEventListener('click', this.handleInputClick);
       this.elements.input.removeEventListener('keyup', this.handleKeyup);

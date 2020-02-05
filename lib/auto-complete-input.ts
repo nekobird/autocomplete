@@ -93,7 +93,7 @@ class AutocompleteInput {
   public setData(data: AutocompleteData) {
     if (Array.isArray(data)) {
       this.data = [...data];
-      this.clearActualInput();
+      this.assignValue('', '');
       this.deactivateList();
     }
   }

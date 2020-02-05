@@ -11,6 +11,8 @@ interface AutoCompleteInputConfig {
   prepareInputElement: (element: HTMLInputElement) => void;
   prepareActualInputElement: (element: HTMLInputElement) => void;
   prepareListElement: (list: HTMLOListElement) => void;
+  prepareListItemElement: (item: HTMLLIElement) => void;
+  prepareListItemAnchorElement: (a: HTMLAnchorElement) => void;
 
   activateList: (list: HTMLOListElement) => void;
   deactivateList: (list: HTMLOListElement) => void;
@@ -24,6 +26,8 @@ const AUTO_COMPLETE_INPUT_DEFAULT_CONFIG: AutoCompleteInputConfig = {
   prepareInputElement: input => input,
   prepareActualInputElement: input => input,
   prepareListElement: list => list,
+  prepareListItemElement: item => item.classList.add('item'),
+  prepareListItemAnchorElement: a => a,
 
   activateList: list => list.classList.add('list--active'),
   deactivateList: list => list.classList.remove('list--active'),
@@ -155,21 +159,8 @@ class AutocompleteInput {
     console.error('autocomplete: Cannot assign value because input or actualInput is undefined.');
   }
 
-  // List
-
-  private deactivateList(): void {
-    if (this.elements.list) {
-      this.config.deactivateList(this.elements.list);
-      this.elements.list.innerHTML = '';
-      this.listIsActive = false;
-    }
-  }
-
-  private showList(): void {
-    this.elements.list && this.config.activateList(this.elements.list);
-  }
-
-  private deactivateAllListItems(): void {
+  // List Items
+  private deactivateAllListItemsFromConfig() {
     if (this.elements.list) {
       const items = this.elements.list.querySelectorAll('li');
       if (items) {
@@ -181,11 +172,27 @@ class AutocompleteInput {
     }
   }
 
-  private resetListAndListItems(): void {
-    if (this.elements.list) {
-      this.deactivateAllListItems();
-      this.deactivateList();
+  private activateListItem(): void {
+    if (this.listIsActive && this.searchResults.length) {
+      if (this.activeListItemIndex > this.searchResults.length - 1) {
+        this.activeListItemIndex = 0;
+      } else if (this.activeListItemIndex < 0) {
+        this.activeListItemIndex = this.searchResults.length - 1;
+      }
 
+      const items = this.elements.list?.querySelectorAll('li');
+
+      if (items && Array.from(items)[this.activeListItemIndex]) {
+        this.deactivateAllListItemsFromConfig();
+        this.config.activateListItem(Array.from(items)[this.activeListItemIndex]);
+        this.listItemIsActive = true;
+      }
+    }
+  }
+
+  private deactivateListItems(): void {
+    if (this.elements.list) {
+      this.deactivateAllListItemsFromConfig();
       this.listItemIsActive = false;
       this.activeListItemIndex = 0;
     }
@@ -194,48 +201,81 @@ class AutocompleteInput {
   private getActiveListItem(): HTMLLIElement | null {
     if (this.listItemIsActive && this.elements.list) {
       const items = this.elements.list.querySelectorAll('li');
-      return items[this.activeListItemIndex] || null;
+      return Array.from(items)[this.activeListItemIndex] || null;
     }
     return null;
   }
 
-  private updateList() {
+  private goUpListItem() {
+    if (this.listItemIsActive) {
+      this.activeListItemIndex--;
+      this.activateListItem();
+    }
+  }
+
+  private goDownListItem() {
+    this.listItemIsActive
+      ? this.activeListItemIndex++
+      : this.activeListItemIndex = 0;
+    this.activateListItem();
+  }
+
+  // List
+  private deactivateList(): void {
+    if (this.elements.list) {
+      // Deactivate active List Items first
+      this.deactivateListItems();
+
+      // Deactivate List.
+      this.config.deactivateList(this.elements.list);
+      this.elements.list.innerHTML = '';
+      this.listIsActive = false;
+    }
+  }
+
+  private activateList() {
     if (this.elements.list && this.searchResults.length) {
       this.config.deactivateList(this.elements.list);
+
       this.elements.list.innerHTML = '';
 
       this.searchResults.forEach(([label, value]) => {
         // list item
         const item = document.createElement('li');
-        item.classList.add('item');
         item.setAttribute('data-label', label);
         item.setAttribute('data-value', value);
+        typeof this.config.prepareListItemElement === 'function'
+          && this.config.prepareListItemElement(item);
 
         // anchor
         const a = document.createElement('a');
         a.setAttribute('data-label', label);
         a.setAttribute('data-value', value);
         a.textContent = label;
-
-        item.appendChild(a);
+        typeof this.config.prepareListItemAnchorElement === 'function'
+          && this.config.prepareListItemAnchorElement(a);
         
         a.addEventListener('click', event => {
           event.preventDefault();
           this.assignValue(item.dataset.label, item.dataset.value);
-          this.resetListAndListItems();
+          this.deactivateList();
         }, true);
 
-        this.elements.list!.appendChild(item);
+        item.appendChild(a);
+
+        // Append item to list.
+        this.elements.list && this.elements.list.appendChild(item);
       });
 
-      this.showList();
+      this.config.activateList(this.elements.list);
+      this.listIsActive = true;
     }
   }
 
-  private showAllListItems() {
+  private updateListWithAllData() {
     if (this.elements.list) {
       this.searchResults = [...this.config.data];
-      this.updateList();
+      this.activateList();
     }
   }
 
@@ -252,7 +292,7 @@ class AutocompleteInput {
         - labelB.trim().toLowerCase().search(_searchString))
       );
 
-      this.updateList();
+      this.activateList();
     }
   }
 
@@ -284,58 +324,12 @@ class AutocompleteInput {
     }
   }
 
-  private goUpListItem() {
-    if (this.elements.list) {
-      const items = this.elements.list.querySelectorAll('li');
-      if (items && items.length > 0) {
-
-        if (!this.listItemIsActive) {
-          return
-        }
-
-        this.activeListItemIndex > 0
-          ? this.activeListItemIndex--
-          : this.activeListItemIndex = 0;
-
-        const activeItem = Array.from(items)[this.activeListItemIndex];
-
-        if (activeItem) {
-          this.deactivateAllListItems();
-          this.config.activateListItem(activeItem);
-        }
-      }
-    }
-  }
-
-  private goDownListItem() {
-    if (this.elements.list) {
-      const items = this.elements.list.querySelectorAll('li');
-      if (items && items.length > 0) {
-
-        if (!this.listItemIsActive) {
-          this.listItemIsActive = true;
-          this.activeListItemIndex = 0;
-        } else {
-          this.activeListItemIndex + 1 > items.length - 1
-            ? this.activeListItemIndex = 0
-            : this.activeListItemIndex++;
-        }
-
-        const activeItem = Array.from(items)[this.activeListItemIndex];
-
-        if (activeItem) {
-          this.deactivateAllListItems();
-          this.config.activateListItem(activeItem);
-        }
-      }
-    }
-  }
-
   private handleKeyboardEvents(event: KeyboardEvent) {
     switch (event.key) {
       case 'Enter': {
+        event.preventDefault();
         this.applyValue();
-        this.resetListAndListItems();
+        this.deactivateList();
         break;
       }
 
@@ -350,7 +344,7 @@ class AutocompleteInput {
       }
 
       case 'Escape': {
-        this.resetListAndListItems();
+        this.deactivateList();
         break;
       }
     }
@@ -360,7 +354,7 @@ class AutocompleteInput {
     if (this.elements.actualInput) {
       this.elements.actualInput.value = '';
       event.target.value === ''
-        ? this.showAllListItems()
+        ? this.updateListWithAllData()
         : this.searchAndUpdateList(event.target.value);
     }
   }
@@ -370,11 +364,17 @@ class AutocompleteInput {
   }
 
   private handleFocus = event => {
-    this.showAllListItems();
+    this.updateListWithAllData();
   }
 
   private handleOutsideClick = event => {
-    this.elements.group && !hasAncestor(event.target, this.elements.group) && this.resetListAndListItems();
+    this.listIsActive && this.elements.group && !hasAncestor(event.target, this.elements.group) && this.deactivateList();
+  }
+
+  private handleInputClick = event => {
+    if (!this.listIsActive) {
+      this.updateListWithAllData();
+    }
   }
 
   // Listen
@@ -382,6 +382,7 @@ class AutocompleteInput {
     if (!this.isListening && this.elements.input) {
       this.elements.input.addEventListener('focus', this.handleFocus, true);
       this.elements.input.addEventListener('input', this.handleInput, true);
+      this.elements.input.addEventListener('click', this.handleInputClick, true);
       this.elements.input.addEventListener('keyup', this.handleKeyup, true);
       window.addEventListener('click', this.handleOutsideClick, true);
     }
@@ -391,6 +392,7 @@ class AutocompleteInput {
     if (this.isListening && this.elements.input) {
       this.elements.input.removeEventListener('focus', this.handleFocus);
       this.elements.input.removeEventListener('input', this.handleInput);
+      this.elements.input.removeEventListener('click', this.handleInputClick);
       this.elements.input.removeEventListener('keyup', this.handleKeyup);
       window.removeEventListener('click', this.handleOutsideClick);
     }

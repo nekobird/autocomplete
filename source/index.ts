@@ -1,4 +1,4 @@
-// import AutocompleteInput from '../lib/autocomplete-input';
+import AutocompleteInput from '../lib/auto-complete-input';
 
 const rootElement = document.getElementById('root');
 
@@ -17,6 +17,7 @@ if (rootElement) {
       ['Quebec',                    'QC'],
       ['Saskatchewan',              'SK'],
     ],
+    prepareListItemElement: item => item.classList.add('item'),
   });
 
   rootElement.appendChild(autocompleteInput.elements.group);

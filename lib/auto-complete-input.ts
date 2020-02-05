@@ -5,8 +5,6 @@ import {
 type AutocompleteData = [string, string][];
 
 interface AutoCompleteInputConfig {
-  data: AutocompleteData;
-
   prepareGroupElement: (element: HTMLElement) => void;
   prepareInputElement: (element: HTMLInputElement) => void;
   prepareActualInputElement: (element: HTMLInputElement) => void;
@@ -19,6 +17,9 @@ interface AutoCompleteInputConfig {
 
   activateListItem: (item: HTMLLIElement) => void;  
   deactivateListItem: (item: HTMLLIElement) => void;
+
+  onInputSelected: (label: string, value: string) => void;
+  onInputRemoved: () => void;
 }
 
 const AUTO_COMPLETE_INPUT_DEFAULT_CONFIG: AutoCompleteInputConfig = {
@@ -35,7 +36,8 @@ const AUTO_COMPLETE_INPUT_DEFAULT_CONFIG: AutoCompleteInputConfig = {
   activateListItem: list => list.classList.add('item--active'),
   deactivateListItem: item => item.classList.remove('item--active'),
 
-  data: [],
+  onInputSelected: value => {},
+  onInputRemoved: () => {},
 };
 
 interface AutoCompleteInputElements {
@@ -53,14 +55,16 @@ class AutocompleteInput {
   // Elements
   public elements: AutoCompleteInputElements;
 
-  public searchResults: AutocompleteData;
+  public listData: AutocompleteData;
 
   // List
   public listIsActive: boolean = false;
   public listItemIsActive: boolean = false;
   public activeListItemIndex: number = 0;
 
-  constructor(config: Partial<AutoCompleteInputConfig>) {
+  public data: AutocompleteData;
+
+  constructor(data: AutocompleteData = [], config: Partial<AutoCompleteInputConfig>) {
     this.config = { ...AUTO_COMPLETE_INPUT_DEFAULT_CONFIG };
 
     this.setConfig(config);
@@ -72,7 +76,8 @@ class AutocompleteInput {
       list: null,
     };
 
-    this.searchResults = [];
+    this.data = [...data];
+    this.listData = [];
 
     // list
     this.createElements();
@@ -83,6 +88,14 @@ class AutocompleteInput {
     typeof config === 'object'
       && Object.assign(this.config, config);
     return this.config;
+  }
+
+  public setData(data: AutocompleteData) {
+    if (Array.isArray(data)) {
+      this.data = [...data];
+      this.clearActualInput();
+      this.deactivateList();
+    }
   }
 
   public getElement(): HTMLElement | null {
@@ -153,6 +166,9 @@ class AutocompleteInput {
       this.elements.input.value = label;
       this.elements.actualInput.value = value;
 
+      label && value
+        ? this.config.onInputSelected(label, value)
+        : this.config.onInputRemoved();
       return;
     }
 
@@ -173,11 +189,11 @@ class AutocompleteInput {
   }
 
   private activateListItem(): void {
-    if (this.listIsActive && this.searchResults.length) {
-      if (this.activeListItemIndex > this.searchResults.length - 1) {
+    if (this.listIsActive && this.listData.length) {
+      if (this.activeListItemIndex > this.listData.length - 1) {
         this.activeListItemIndex = 0;
       } else if (this.activeListItemIndex < 0) {
-        this.activeListItemIndex = this.searchResults.length - 1;
+        this.activeListItemIndex = this.listData.length - 1;
       }
 
       const items = this.elements.list?.querySelectorAll('li');
@@ -234,12 +250,12 @@ class AutocompleteInput {
   }
 
   private activateList() {
-    if (this.elements.list && this.searchResults.length) {
+    if (this.elements.list && this.listData.length) {
       this.config.deactivateList(this.elements.list);
 
       this.elements.list.innerHTML = '';
 
-      this.searchResults.forEach(([label, value]) => {
+      this.listData.forEach(([label, value]) => {
         // list item
         const item = document.createElement('li');
         item.setAttribute('data-label', label);
@@ -274,7 +290,7 @@ class AutocompleteInput {
 
   private updateListWithAllData() {
     if (this.elements.list) {
-      this.searchResults = [...this.config.data];
+      this.listData = [...this.data];
       this.activateList();
     }
   }
@@ -282,42 +298,59 @@ class AutocompleteInput {
   private searchAndUpdateList(searchString: string) {
     const _searchString = searchString.trim().toLowerCase();
     if (_searchString) {
-      this.searchResults = this.config.data.filter(([label]) => {
-        const searchRegex = new RegExp(`(${_searchString.trim().toLowerCase()})`);
-        return label.toLowerCase().match(searchRegex);
+      const matchedResult = this.data.find(([label]) => {
+        const searchRegex = new RegExp(`^${_searchString}$`);
+        return searchRegex.test(label.toLowerCase())
       });
 
-      this.searchResults.sort(([labelA], [labelB]) => (
-        labelA.trim().toLowerCase().search(_searchString)
-        - labelB.trim().toLowerCase().search(_searchString))
-      );
+      if (matchedResult) {
+        this.assignValue(...matchedResult);
+        this.deactivateList();
+      } else {
+        this.listData = this.data.filter(([label]) => {
+          const searchRegex = new RegExp(`(${_searchString})`);
+          return label.toLowerCase().match(searchRegex);
+        });
 
-      this.activateList();
+        this.listData.sort(([labelA], [labelB]) => (
+          labelA.trim().toLowerCase().search(_searchString)
+          - labelB.trim().toLowerCase().search(_searchString))
+        );
+
+        this.activateList();
+      }
     }
   }
 
   private applyActiveListItem() {
     const item = this.getActiveListItem();
-    item && this.assignValue(item.dataset.label, item.dataset.value);
+    if (item) {
+      this.assignValue(item.dataset.label, item.dataset.value);
+    }
   }
 
   private applyFirstSearchResult() {
-    if (this.searchResults.length) {
-      const [label, value] = this.searchResults[0];
+    if (this.listData.length) {
+      const [label, value] = this.listData[0];
       this.assignValue(label, value);
     }
   }
 
   private clearActualInput() {
-    if (this.elements.actualInput) {
+    if (
+      this.elements.actualInput
+      && this.elements.actualInput.value
+    ) {
       this.elements.actualInput.value = '';
+      typeof this.config.onInputRemoved === 'function'
+        && this.config.onInputRemoved();
     }
   }
 
   private applyValue() {
     if (this.listItemIsActive) {
       this.applyActiveListItem();
-    } else if (this.searchResults.length) {
+    } else if (this.listData.length) {
       this.applyFirstSearchResult();
     } else {
       this.clearActualInput();
@@ -351,12 +384,10 @@ class AutocompleteInput {
   }
 
   private handleInput = event => {
-    if (this.elements.actualInput) {
-      this.elements.actualInput.value = '';
-      event.target.value === ''
-        ? this.updateListWithAllData()
-        : this.searchAndUpdateList(event.target.value);
-    }
+    this.clearActualInput();
+    event.target.value === ''
+      ? this.updateListWithAllData()
+      : this.searchAndUpdateList(event.target.value);
   }
 
   private handleKeyup = event => {

@@ -4,8 +4,8 @@ const rootElement = document.getElementById('root');
 
 if (rootElement) {
   // @ts-ignore
-  const autocompleteInput = new AutocompleteInput({
-    data: [
+  const autocompleteInput = new AutocompleteInput(
+    [
       ['Alberta',                   'AB'],
       ['British Columbia',          'BC'],
       ['Manitoba',                  'MB'],
@@ -17,8 +17,12 @@ if (rootElement) {
       ['Quebec',                    'QC'],
       ['Saskatchewan',              'SK'],
     ],
-    prepareListItemElement: item => item.classList.add('item'),
-  });
+    {
+      prepareListItemElement: item => item.classList.add('item'),
+      onInputSelected: (label, value) => console.log(label, value),
+      onInputRemoved: () => console.log('removed'),
+    }
+  );
 
   rootElement.appendChild(autocompleteInput.elements.group);
 }

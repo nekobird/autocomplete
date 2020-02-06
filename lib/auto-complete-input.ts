@@ -402,7 +402,9 @@ class AutocompleteInput {
 
   private handleFocus = event => {
     this.inputIsFocused = true;
-    this.updateListWithAllData();
+    this.elements.input
+      ? this.searchAndUpdateList(event.target.value)
+      : this.updateListWithAllData();
   }
 
   private handleBlur = event => {
@@ -417,9 +419,12 @@ class AutocompleteInput {
   }
 
   private handleInputClick = event => {
-    if (!this.listIsActive) {
-      this.updateListWithAllData();
-    }
+    !this.listIsActive
+      && this.updateListWithAllData();
+  }
+
+  private handleInputDoubleClick = event => {
+    this.updateListWithAllData();
   }
 
   // Listen
@@ -430,6 +435,8 @@ class AutocompleteInput {
 
       this.elements.input.addEventListener('input', this.handleInput, true);
       this.elements.input.addEventListener('click', this.handleInputClick, true);
+      this.elements.input.addEventListener('dblclick', this.handleInputDoubleClick, true);
+
       this.elements.input.addEventListener('keyup', this.handleKeyup, true);
       window.addEventListener('click', this.handleOutsideClick, true);
     }
@@ -442,6 +449,8 @@ class AutocompleteInput {
 
       this.elements.input.removeEventListener('input', this.handleInput);
       this.elements.input.removeEventListener('click', this.handleInputClick);
+      this.elements.input.removeEventListener('dblclick', this.handleInputDoubleClick);
+
       this.elements.input.removeEventListener('keyup', this.handleKeyup);
       window.removeEventListener('click', this.handleOutsideClick);
     }

@@ -85,12 +85,19 @@ class AutocompleteInput {
     // list
     this.createElements();
     this.listen();
+    this.initialize();
   }
 
   public setConfig(config: Partial<AutoCompleteInputConfig>): AutoCompleteInputConfig {
     typeof config === 'object'
       && Object.assign(this.config, config);
     return this.config;
+  }
+
+  private initialize() {
+    const value = this.elements.input?.value;
+    this.clearActualInput();
+    value && this.searchAndUpdateList(value);
   }
 
   public setData(data: AutocompleteData) {
@@ -165,17 +172,19 @@ class AutocompleteInput {
       && this.elements.actualInput
       && typeof label === 'string'
       && typeof value === 'string'
+      && (
+           this.elements.input.value !== label
+        || this.elements.actualInput.value !== value
+      )
     ) {
       this.elements.input.value = label;
       this.elements.actualInput.value = value;
 
-      label && value
+      label
         ? this.config.onInputSelected(label, value)
         : this.config.onInputRemoved();
       return;
     }
-
-    console.error('autocomplete: Cannot assign value because input or actualInput is undefined.');
   }
 
   // List Items

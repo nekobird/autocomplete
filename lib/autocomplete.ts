@@ -8,6 +8,8 @@ type HTMLListElement = HTMLOListElement | HTMLUListElement;
 type AutocompleteData = [string, string][];
 
 interface AutocompleteConfig {
+  defaultValue: string;
+
   getGroupElement: () => HTMLElement | null;
   getInputElement: () => HTMLInputElement | null;
   getActualInputElement: () => HTMLInputElement | null;
@@ -27,6 +29,8 @@ interface AutocompleteConfig {
 }
 
 const AUTOCOMPLETE_DEFAULT_CONFIG: AutocompleteConfig = {
+  defaultValue: '',
+
   getGroupElement: () => null,
   getInputElement: () => null,
   getActualInputElement: () => null,
@@ -89,6 +93,7 @@ class Autocomplete {
 
     this.getElements();
     this.listen();
+    this.initialize();
   }
 
   public setConfig(config: Partial<AutocompleteConfig>): AutocompleteConfig {
@@ -97,7 +102,13 @@ class Autocomplete {
     return this.config;
   }
 
-  public setData(data: AutocompleteData) {
+  private initialize() {
+    const value = this.elements.input?.value;
+    this.clearActualInput();
+    value && this.searchAndUpdateList(value);
+  }
+
+  public updateData(data: AutocompleteData) {
     if (Array.isArray(data)) {
       this.data = [...data];
       this.assignValue('', '');
@@ -139,22 +150,26 @@ class Autocomplete {
   }
 
   public assignValue(label?: string, value?: string): void {
+    const _value = value || this.config.defaultValue
     if (
          this.elements.input
       && this.elements.actualInput
       && typeof label === 'string'
       && typeof value === 'string'
+      && (
+           this.elements.input.value !== label
+        || this.elements.actualInput.value !== _value
+      )
     ) {
       this.elements.input.value = label;
-      this.elements.actualInput.value = value;
+      this.elements.actualInput.value = _value;
 
-      label && value
-        ? this.config.onInputSelected(label, value)
+      label
+        ? this.config.onInputSelected(label, _value)
         : this.config.onInputRemoved();
+
       return;
     }
-
-    console.error('autocomplete: Cannot assign value because input or actualInput is undefined.');
   }
 
   // List Items
@@ -326,7 +341,7 @@ class Autocomplete {
       this.elements.actualInput
       && this.elements.actualInput.value
     ) {
-      this.elements.actualInput.value = '';
+      this.elements.actualInput.value = this.config.defaultValue;
       typeof this.config.onInputRemoved === 'function'
         && this.config.onInputRemoved();
     }

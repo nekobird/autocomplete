@@ -18,6 +18,7 @@ if (rootElement) {
       ['Saskatchewan',              'SK'],
     ],
     {
+      prepareInputElement: input => input.value = 'Ontario',
       prepareListItemElement: item => item.classList.add('item'),
       onInputSelected: (label, value) => console.log(label, value),
       onInputRemoved: () => console.log('removed'),
